@@ -469,6 +469,9 @@ public sealed partial class VideoPlayer : DisposableBase
     /// <summary>
     /// Audio output sample rate
     /// </summary>
+    /// <remarks>
+    /// Intended to either be used once prior to creating any video players.
+    /// </remarks>
     public static int AudioSampleRate
     {
         get { return FFmpegHelper.RequiredSampleRate; }
