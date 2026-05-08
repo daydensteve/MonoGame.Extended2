@@ -1057,9 +1057,12 @@ internal sealed unsafe class DecodeContext : DisposableBase
                 {
                     break;
                 }
-                else if (error == ffmpeg.EAGAIN)
+                else if (error == ffmpeg.EAGAIN || error == -ffmpeg.EAGAIN)
                 {
                     // Go on.
+                    // @note The negated value of this error has been observed
+                    // to be returned from ffmpeg at the end of the video when
+                    // looped.
                 }
                 else
                 {
