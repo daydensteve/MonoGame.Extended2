@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
@@ -6,6 +6,8 @@ using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Media;
 using MonoGame.Extended.VideoPlayback;
+using MonoGame.Extended.VideoPlayback.Media;
+using Sdcb.FFmpeg.Raw;
 
 // ReSharper disable once CheckNamespace
 namespace MonoGame.Extended.Framework.Media;
@@ -48,7 +50,7 @@ public sealed partial class VideoPlayer : DisposableBase
         _playerOptions = playerOptions;
 
         _graphicsDevice = graphicsDevice;
-        _soundEffectInstance = new DynamicSoundEffectInstance(FFmpegHelper.RequiredSampleRate, FFmpegHelper.RequiredChannelsXna);
+        InitializeAudioOutput();
     }
 
     /// <summary>
@@ -85,6 +87,7 @@ public sealed partial class VideoPlayer : DisposableBase
     /// <summary>
     /// Gets/sets whether video playbacks are muted.
     /// </summary>
+    /// <remarks>Ignored when using an external audio buffer consumer</remarks>
     public bool IsMuted
     {
         get
@@ -265,6 +268,7 @@ public sealed partial class VideoPlayer : DisposableBase
     /// <summary>
     /// Gets/sets playback volume.
     /// </summary>
+    /// <remarks>Ignored when using an external audio buffer consumer</remarks>
     public float Volume
     {
         get
@@ -463,6 +467,44 @@ public sealed partial class VideoPlayer : DisposableBase
     }
 
     /// <summary>
+    /// Audio output sample rate
+    /// </summary>
+    /// <remarks>
+    /// Intended to either be used once prior to creating any video players.
+    /// </remarks>
+    public static int AudioSampleRate
+    {
+        get { return FFmpegHelper.RequiredSampleRate; }
+        set { FFmpegHelper.RequiredSampleRate = value; }
+    }
+
+    /// <summary>
+    /// Get the WaveFormat format for audio output from the video player
+    /// </summary>
+    /// <returns>sampleRate, bitsPerSample, and number of channels</returns>
+    public static (int sampleRate, int bitsPerSample, int channels) GetAudioWaveFormat()
+    {
+        Debug.Assert(FFmpegHelper.RequiredSampleFormat == AVSampleFormat.S16);
+
+        return (FFmpegHelper.RequiredSampleRate,
+                16,
+                FFmpegHelper.RequiredChannels);
+    }
+
+    /// <summary>
+    /// Allows specification of an external consumer of output audio.
+    /// When specified, the XNA/MonoGame sound engine will NOT process the
+    /// audio from the video. Intended for use when using a different audio
+    /// engine (e.g. NAudio)
+    /// </summary>
+    /// <seealso cref="GetAudioWaveFormat"/>
+    /// <param name="audioBufferCb">Function to provide audio samples</param>
+    public void SetExternalAudioRenderer(Action<byte[]>? audioBufferCb)
+    {
+        InitializeAudioOutput(audioBufferCb);
+    }
+
+    /// <summary>
     /// (Non-standard extension) Required texture format (<see cref="SurfaceFormat.Color"/>).
     /// </summary>
     /// <seealso cref="FFmpegHelper.RequiredPixelFormat"/>
@@ -489,6 +531,8 @@ public sealed partial class VideoPlayer : DisposableBase
 
             se?.Dispose();
             se = null;
+
+            _soundBufferConsumer = null;
         }
 
         _textureBuffer?.Dispose();
@@ -642,12 +686,12 @@ public sealed partial class VideoPlayer : DisposableBase
         lock (_soundEffectInstanceLock)
         {
             ref var se = ref _soundEffectInstance;
-
-            Debug.Assert(se != null, nameof(se) + " != null");
-
-            se.Stop();
-            se.Dispose();
-            se = new DynamicSoundEffectInstance(FFmpegHelper.RequiredSampleRate, FFmpegHelper.RequiredChannelsXna);
+            if (se != null)
+            {
+                se?.Stop();
+                se?.Dispose();
+                se = new DynamicSoundEffectInstance(FFmpegHelper.RequiredSampleRate, FFmpegHelper.RequiredChannelsXna);
+            }
 
             decodingThread = new DecodingThread(this, _playerOptions);
 
@@ -660,7 +704,7 @@ public sealed partial class VideoPlayer : DisposableBase
             stopwatch.Start();
 
             decodingThread.Start(video);
-            se.Play();
+            se?.Play();
         }
     }
 
@@ -681,6 +725,26 @@ public sealed partial class VideoPlayer : DisposableBase
         }
 
         return graphicsDevice;
+    }
+
+    private void InitializeAudioOutput(Action<byte[]>? audioBufferCb = null)
+    {
+        lock (_soundEffectInstanceLock)
+        {
+            _soundEffectInstance?.Dispose();
+            if (audioBufferCb is null)
+            {
+                // using xna/monogame audio system
+                _soundEffectInstance = new DynamicSoundEffectInstance(FFmpegHelper.RequiredSampleRate, FFmpegHelper.RequiredChannelsXna);
+                _soundBufferConsumer = null;
+            }
+            else
+            {
+                // using an enternal audio sample consumer
+                _soundBufferConsumer = new SoundBufferConsumer(audioBufferCb);
+                _soundEffectInstance = null;
+            }
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -711,6 +775,7 @@ public sealed partial class VideoPlayer : DisposableBase
     private RenderTarget2D? _textureBuffer;
 
     private DynamicSoundEffectInstance? _soundEffectInstance;
+    private SoundBufferConsumer? _soundBufferConsumer;
 
     private readonly object _soundEffectInstanceLock = new();
 

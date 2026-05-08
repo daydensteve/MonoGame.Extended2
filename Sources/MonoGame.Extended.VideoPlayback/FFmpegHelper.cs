@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -41,7 +41,7 @@ internal static unsafe class FFmpegHelper
     /// It can be other frequencies, such as 22050, 32000, 48000, 96000, etc.
     /// Considering that most of the devices support 44100 Hz output and the quality is reasonable, the sample rate is chosen as 44100 Hz.
     /// </summary>
-    internal const int RequiredSampleRate = 44100;
+    public static int RequiredSampleRate = 44100;
 
     /// <summary>
     /// Required number of channels, using <see cref="AudioChannels"/> enum.
@@ -365,7 +365,7 @@ internal static unsafe class FFmpegHelper
 
         const int dstChannels = RequiredChannels;
         const AVSampleFormat dstSampleFormat = RequiredSampleFormat;
-        const int dstSampleRate = RequiredSampleRate;
+        int dstSampleRate = RequiredSampleRate;
 
         var resampleContext = audioContext.GetSuitableResampleContext(dstSampleFormat, dstChannels, dstSampleRate);
 
