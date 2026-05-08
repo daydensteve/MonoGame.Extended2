@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Threading;
 using Microsoft.Xna.Framework.Media;
@@ -129,10 +129,11 @@ internal sealed class DecodingThread
                                 using (var seAccess = videoPlayer.AccessSoundEffect())
                                 {
                                     var soundEffect = seAccess.SoundEffect;
+                                    var bufferProvider = seAccess.BufferConsumer;
 
-                                    if (soundEffect != null)
+                                    if (soundEffect != null || bufferProvider != null)
                                     {
-                                        decodeContext.ReadAudioUntilPlaybackIsAfter(soundEffect, presentationTime);
+                                        decodeContext.ReadAudioUntilPlaybackIsAfter(soundEffect, bufferProvider, presentationTime);
                                     }
                                 }
 

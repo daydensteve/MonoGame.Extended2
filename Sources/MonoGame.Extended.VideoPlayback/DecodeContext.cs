@@ -11,6 +11,7 @@ using Microsoft.Xna.Framework.Audio;
 using MonoGame.Extended.Framework.Media;
 using MonoGame.Extended.VideoPlayback.AudioDecoding;
 using MonoGame.Extended.VideoPlayback.Extensions;
+using MonoGame.Extended.VideoPlayback.Media;
 using MonoGame.Extended.VideoPlayback.VideoDecoding;
 using Sdcb.FFmpeg.Raw;
 
@@ -548,9 +549,10 @@ internal sealed unsafe class DecodeContext : DisposableBase
     /// <summary>
     /// Reads audio packets, decode them into audio frames and send the data to an <see cref="DynamicSoundEffectInstance"/>, until presentation time of the frame decoded is after specified time.
     /// </summary>
-    /// <param name="sound">The <see cref="DynamicSoundEffectInstance"/> to play audio data.</param>
+    /// <param name="sound">The <see cref="DynamicSoundEffectInstance"/> to play audio data. May be null</param>
+    /// <param name="soundConsumer">The <see cref="SoundBufferConsumer"/> used to transfer audio data to an external consumer. May be null</param>
     /// <param name="presentationTime">Current playback time, in seconds.</param>
-    internal void ReadAudioUntilPlaybackIsAfter(DynamicSoundEffectInstance sound, double presentationTime)
+    internal void ReadAudioUntilPlaybackIsAfter(DynamicSoundEffectInstance? sound, SoundBufferConsumer? soundConsumer, double presentationTime)
     {
         EnsureNotDisposed();
         EnsureInitialized();
@@ -632,15 +634,22 @@ internal sealed unsafe class DecodeContext : DisposableBase
             {
                 var audioData = memoryStream.ToArray();
 
-                // ... send the data to OpenAL's audio buffer...
-                // TODO: XAudio2 0x88960001?
-                sound.SubmitBuffer(audioData);
-
-                // ... and play it.
-                if (sound.State == SoundState.Stopped)
+                // If we have a sound effort, hand it the data and play it
+                if (sound != null)
                 {
-                    sound.Play();
+                    // ... send the data to OpenAL's audio buffer...
+                    // TODO: XAudio2 0x88960001?
+                    sound.SubmitBuffer(audioData);
+
+                    // ... and play it.
+                    if (sound.State == SoundState.Stopped)
+                    {
+                        sound.Play();
+                    }
                 }
+
+                // If we have a sound consumer, hand it the buffer so it can do whatever with it.
+                soundConsumer?.SubmitBuffer(audioData);
             }
         }
     }

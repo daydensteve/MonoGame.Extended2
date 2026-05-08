@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using Microsoft.Xna.Framework.Audio;
+using MonoGame.Extended.VideoPlayback.Media;
 
 // ReSharper disable once CheckNamespace
 namespace MonoGame.Extended.Framework.Media;
@@ -23,6 +24,12 @@ partial class VideoPlayer
         {
             [DebuggerStepThrough]
             get => _videoPlayer._soundEffectInstance;
+        }
+
+        public SoundBufferConsumer? BufferConsumer
+        {
+            [DebuggerStepThrough]
+            get => _videoPlayer._soundBufferConsumer;
         }
 
         public void Dispose()
