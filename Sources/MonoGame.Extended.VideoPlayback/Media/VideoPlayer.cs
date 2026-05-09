@@ -509,6 +509,12 @@ public sealed partial class VideoPlayer : DisposableBase
     public const SurfaceFormat RequiredSurfaceFormat = SurfaceFormat.Color;
 
     /// <summary>
+    /// Set to adjust automatic audio video sync. Generally useful when using
+    /// a custom audio buffer consumer. Specified in Seconds.
+    /// </summary>
+    public static double AudioLatency = 0;
+
+    /// <summary>
     /// Creates a new <see cref="DynamicSoundEffectInstanceAccess"/> on <see langword="this"/>.
     /// </summary>
     /// <returns></returns>

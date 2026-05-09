@@ -1236,10 +1236,16 @@ internal sealed unsafe class DecodeContext : DisposableBase
         {
             _videoStreamIndex = -1;
         }
-
         _audioStreamIndex = ffmpeg.av_find_best_stream(formatContext, AVMediaType.Audio, _userSelectedAudioStreamIndex, -1, &audioCodec, 0);
         if (audioCodec != null && _audioStreamIndex != ffmpeg.AVERROR_STREAM_NOT_FOUND)
         {
+            // skew the video start for user-specified latency
+            if (_videoStreamIndex != -1)
+            {
+                var offset = FFmpegHelper.ConvertSecondsToPts(formatContext->streams[_videoStreamIndex], VideoPlayer.AudioLatency);
+                _videoStartPts += offset;
+            }
+
             var avStream = formatContext->streams[_audioStreamIndex];
 
             // 6. If this is an audio stream, create an AudioDecodingContext from it...
