@@ -35,7 +35,7 @@ public sealed partial class VideoPlayer : DisposableBase
     /// </summary>
     /// <param name="graphicsDevice">The graphics device to use.</param>
     public VideoPlayer(GraphicsDevice graphicsDevice)
-        : this(graphicsDevice, VideoPlayerOptions.Default)
+        : this(graphicsDevice, VideoPlayerOptions.Default, audioBufferCb: null)
     {
     }
 
@@ -44,13 +44,24 @@ public sealed partial class VideoPlayer : DisposableBase
     /// </summary>
     /// <param name="graphicsDevice">The graphics device to use.</param>
     /// <param name="playerOptions">Player options.</param>
-    public VideoPlayer(GraphicsDevice graphicsDevice, VideoPlayerOptions playerOptions)
+    /// <param name="audioBufferCb">Custom processor for audio output. When specified, Monogame audio engine will not be used.</param>
+    public VideoPlayer(GraphicsDevice graphicsDevice, VideoPlayerOptions playerOptions, Action<byte[]>? audioBufferCb = null)
     {
         _stopwatch = new Stopwatch();
         _playerOptions = playerOptions;
 
         _graphicsDevice = graphicsDevice;
-        InitializeAudioOutput();
+
+        if (audioBufferCb is null)
+        {
+            // using xna/monogame audio system
+            _soundEffectInstance = new DynamicSoundEffectInstance(FFmpegHelper.RequiredSampleRate, FFmpegHelper.RequiredChannelsXna);
+        }
+        else
+        {
+            // using a custom audio sample consumer
+            _soundBufferConsumer = new SoundBufferConsumer(audioBufferCb);
+        }
     }
 
     /// <summary>
@@ -492,19 +503,6 @@ public sealed partial class VideoPlayer : DisposableBase
     }
 
     /// <summary>
-    /// Allows specification of an external consumer of output audio.
-    /// When specified, the XNA/MonoGame sound engine will NOT process the
-    /// audio from the video. Intended for use when using a different audio
-    /// engine (e.g. NAudio)
-    /// </summary>
-    /// <seealso cref="GetAudioWaveFormat"/>
-    /// <param name="audioBufferCb">Function to provide audio samples</param>
-    public void SetExternalAudioRenderer(Action<byte[]>? audioBufferCb)
-    {
-        InitializeAudioOutput(audioBufferCb);
-    }
-
-    /// <summary>
     /// (Non-standard extension) Required texture format (<see cref="SurfaceFormat.Color"/>).
     /// </summary>
     /// <seealso cref="FFmpegHelper.RequiredPixelFormat"/>
@@ -725,26 +723,6 @@ public sealed partial class VideoPlayer : DisposableBase
         }
 
         return graphicsDevice;
-    }
-
-    private void InitializeAudioOutput(Action<byte[]>? audioBufferCb = null)
-    {
-        lock (_soundEffectInstanceLock)
-        {
-            _soundEffectInstance?.Dispose();
-            if (audioBufferCb is null)
-            {
-                // using xna/monogame audio system
-                _soundEffectInstance = new DynamicSoundEffectInstance(FFmpegHelper.RequiredSampleRate, FFmpegHelper.RequiredChannelsXna);
-                _soundBufferConsumer = null;
-            }
-            else
-            {
-                // using an enternal audio sample consumer
-                _soundBufferConsumer = new SoundBufferConsumer(audioBufferCb);
-                _soundEffectInstance = null;
-            }
-        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
